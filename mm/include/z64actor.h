@@ -424,7 +424,18 @@ typedef struct ActorContext {
     /* 0x002 */ u8 unk2;
     /* 0x003 */ u8 lensActive;
     /* 0x004 */ s8 lensMaskSize; // The size of the circle when drawn the lens mask. Larger value leads to a smaller circle
-    /* 0x005 */ u8 flags;
+    /* 0x005 */ //u8 flags;
+    struct {
+        /* 0x0104 */ u32 swch;
+        /* 0x0108 */ u32 tempSwch;
+        /* 0x010C */ u32 unk0;
+        /* 0x0110 */ u32 unk1;
+        /* 0x0114 */ u32 chest;
+        /* 0x0118 */ u32 clear;
+        /* 0x011C */ u32 tempClear;
+        /* 0x0120 */ u32 collect;
+        /* 0x0124 */ u32 tempCollect;
+    } flags; // From OOT. I don't know if this is correct in MM or not.
     /* 0x006 */ UNK_TYPE1 pad6[0x5];
     /* 0x00B */ s8 lensActorsDrawn;
     /* 0x00C */ s16 halfDaysBit; // A single bit indicating the current half-day. It is one of HALFDAYBIT_DAYX_ macro values

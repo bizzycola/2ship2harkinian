@@ -492,6 +492,7 @@ typedef enum {
 
 #define SLOT(item) gItemSlots[item]
 #define AMMO(item) gSaveContext.save.saveInfo.inventory.ammo[SLOT(item)]
+#define BEANS_BOUGHT AMMO(ITEM_MAGIC_BEANS + 1)
 #define INV_CONTENT(item) gSaveContext.save.saveInfo.inventory.items[SLOT(item)]
 #define GET_INV_CONTENT(item) ((void)0, gSaveContext.save.saveInfo.inventory.items)[SLOT(item)]
 

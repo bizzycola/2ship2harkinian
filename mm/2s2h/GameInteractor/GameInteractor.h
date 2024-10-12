@@ -12,6 +12,10 @@ extern "C" {
 }
 #endif
 
+#include <SDL2/SDL_net.h>
+#include <nlohmann/json.hpp>
+#include <thread>
+
 typedef enum {
     FLAG_NONE,
     FLAG_WEEK_EVENT_REG,
@@ -120,6 +124,20 @@ class GameInteractor {
 
     // Game State
     class State {};
+
+    bool isRemoteInteractorEnabled;
+    bool isRemoteInteractorConnected;
+
+    static bool IsSaveLoaded();
+    void EnableRemoteInteractor();
+    void DisableRemoteInteractor();
+    void RegisterRemoteDataHandler(std::function<void(char payload[512])> method);
+    void RegisterRemoteJsonHandler(std::function<void(nlohmann::json)> method);
+    void RegisterRemoteConnectedHandler(std::function<void()> method);
+    void RegisterRemoteDisconnectedHandler(std::function<void()> method);
+    void TransmitDataToRemote(const char* payload);
+    void TransmitJsonToRemote(nlohmann::json packet);
+    
 
     // Game Hooks
     HOOK_ID nextHookId = 1;
@@ -330,7 +348,21 @@ class GameInteractor {
     DEFINE_HOOK(OnItemGive, (u8 item));
 
     DEFINE_HOOK(ShouldVanillaBehavior, (GIVanillaBehavior flag, bool* should, va_list originalArgs));
+
+    private:
+        IPaddress remoteIP;
+        TCPsocket remoteSocket;
+        std::thread remoteThreadReceive;
+        std::function<void(char payload[512])> remoteDataHandler;
+        std::function<void(nlohmann::json)> remoteJsonHandler;
+        std::function<void()> remoteConnectedHandler;
+        std::function<void()> remoteDisconnectedHandler;
+        void ReceiveFromServer();
+        void HandleRemoteData(char payload[512]);
+        void HandleRemoteJson(std::string payload);
 };
+
+
 
 extern "C" {
 #endif // __cplusplus
