@@ -118,6 +118,25 @@ void from_json(const json& j, SohStats& sohStats) {
     j.at("fileCreatedAt").get_to(sohStats.fileCreatedAt);
 }*/
 
+void to_json(json& j, const CycleSceneFlags& sceneFlags) {
+    j = json {
+        { "chest", sceneFlags.chest },
+		{ "switch0", sceneFlags.switch0 },
+		{ "switch1", sceneFlags.switch1 },
+		{ "clear", sceneFlags.clearedRoom },
+		{ "collect", sceneFlags.collectible },
+    };
+}
+
+void from_json(const json& j, CycleSceneFlags& sceneFlags) {
+	j.at("chest").get_to(sceneFlags.chest);
+	j.at("switch0").get_to(sceneFlags.switch0);
+	j.at("switch1").get_to(sceneFlags.switch1);
+	j.at("clear").get_to(sceneFlags.clearedRoom);
+	j.at("collect").get_to(sceneFlags.collectible);
+}
+
+
 void to_json(json& j, const SaveContext& saveContext) {
     j = json{
         { "magicCapacity", saveContext.magicCapacity }, 
@@ -128,8 +147,8 @@ void to_json(json& j, const SaveContext& saveContext) {
         { "isDoubleMagicAcquired", saveContext.save.saveInfo.playerData.isDoubleMagicAcquired },
 		{ "isDoubleDefenseAcquired", saveContext.save.saveInfo.playerData.doubleDefense },
 		{ "swordHealth", saveContext.save.saveInfo.playerData.swordHealth },
-		// { "sceneFlags", saveContext.sceneFlags }, // ??
-		{ "eventChkInf", saveContext.eventInf },
+		{ "sceneFlags", saveContext.cycleSceneFlags }, // ??
+		// { "eventChkInf", saveContext.eventChkInf }, // In OOT, these are all OOT specific flags (not used/doesn't exist in MM)
 		// { "itemGetInf", saveContext.itemGetInf }, // ???
 		// { "infTable", saveContext.save.saveInfo.infTable }, // ??
 		// { "randomizerInf", saveContext.save.saveInfo.randomizerInf }, // No randomizer
@@ -148,8 +167,8 @@ void from_json(const json& j, SaveContext& saveContext) {
     j.at("isDoubleMagicAcquired").get_to(saveContext.save.saveInfo.playerData.isDoubleMagicAcquired);
     j.at("isDoubleDefenseAcquired").get_to(saveContext.save.saveInfo.playerData.doubleDefense);
     j.at("swordHealth").get_to(saveContext.save.saveInfo.playerData.swordHealth);
-    j.at("eventChkInf").get_to(saveContext.eventInf);
     j.at("inventory").get_to(saveContext.save.saveInfo.inventory);
+    j.at("sceneFlags").get_to(saveContext.cycleSceneFlags); // ??
 }
 
 std::map<uint32_t, AnchorClient> GameInteractorAnchor::AnchorClients = {};
@@ -513,6 +532,80 @@ void Anchor_ParseSaveStateFromRemote(nlohmann::json payload) {
     // gSaveContext.eventInf = loadedData.eventInf; // Can't modify? TODO: Check
     gSaveContext.save.saveInfo.inventory = loadedData.save.saveInfo.inventory;
 
+     for (int i = 0; i < 124; i++) {
+        gSaveContext.cycleSceneFlags[i] = loadedData.cycleSceneFlags[i];
+        if (gPlayState->sceneId == i) {
+            gPlayState->actorCtx.flags.chest = loadedData.cycleSceneFlags[i].chest;
+            gPlayState->actorCtx.flags.swch = loadedData.cycleSceneFlags[i].switch0;
+            //gPlayState->actorCtx.flags.swch1 = loadedData.cycleSceneFlags[i].switch1; // In progress working out flags
+            gPlayState->actorCtx.flags.clear = loadedData.cycleSceneFlags[i].clearedRoom;
+            gPlayState->actorCtx.flags.collect = loadedData.cycleSceneFlags[i].collectible;
+        }
+    }
+
+    for (int i = 0; i < 14; i++) {
+        //gSaveContext.eventChkInf[i] = loadedData.eventChkInf[i]; // Doesn't seem to exist in MM
+    }
+
+    for (int i = 0; i < 4; i++) {
+        //gSaveContext.itemGetInf[i] = loadedData.itemGetInf[i]; // TODO
+    }
+
+    // Skip last row of infTable, don't want to sync swordless flag
+    for (int i = 0; i < 29; i++) {
+        // gSaveContext.infTable[i] = loadedData.infTable[i]; // TODO
+    }
+
+    for (int i = 0; i < 9; i++) {
+        // gSaveContext.randomizerInf[i] = loadedData.randomizerInf[i]; // No randomizer
+    }
+
+    for (int i = 0; i < 6; i++) {
+        //gSaveContext.gsFlags[i] = loadedData.gsFlags[i]; // No GS
+    }
+
+    /* for (int i = 0; i < SAVEFILE_ENTRANCES_DISCOVERED_IDX_COUNT; i++) {
+        gSaveContext.sohStats.entrancesDiscovered[i] = loadedData.sohStats.entrancesDiscovered[i];
+    }*/ // OOT entrance randomizer
+
+    /* CheckTracker::Teardown();
+    CheckTracker::CheckTrackerLoadGame(gSaveContext.fileNum);
+    for (int i = 2; i < RC_MAX; i++) {
+        gSaveContext.checkTrackerData[i].status = loadedData.checkTrackerData[i].status;
+        gSaveContext.checkTrackerData[i].skipped = loadedData.checkTrackerData[i].skipped;
+        gSaveContext.checkTrackerData[i].price = loadedData.checkTrackerData[i].price;
+        gSaveContext.checkTrackerData[i].hintItem = loadedData.checkTrackerData[i].hintItem;
+    }*/ // Randomizer change tracker
+
+    //gSaveContext.sohStats.fileCreatedAt = loadedData.sohStats.fileCreatedAt; // No stats?
+
+    // Restore master sword state
+    /* u8 hasMasterSword = CHECK_OWNED_EQUIP(EQUIP_TYPE_SWORD, 1);
+    if (hasMasterSword) {
+        loadedData.inventory.equipment |= 0x2;
+    } else {
+        loadedData.inventory.equipment &= ~0x2;
+    }*/ // No master sword
+
+    // Restore bottle contents (unless it's ruto's letter)
+    for (int i = 0; i < 4; i++) {
+        if (gSaveContext.save.saveInfo.inventory.items[SLOT_BOTTLE_1 + i] != ITEM_NONE) {
+            //gSaveContext.inventory.items[SLOT_BOTTLE_1 + i] != ITEM_LETTER_RUTO) { // No letter
+            loadedData.save.saveInfo.inventory.items[SLOT_BOTTLE_1 + i] =
+                gSaveContext.save.saveInfo.inventory.items[SLOT_BOTTLE_1 + i];
+        }
+    }
+
+    // Restore ammo if it's non-zero, unless it's beans
+    for (int i = 0; i < ARRAY_COUNT(gSaveContext.save.saveInfo.inventory.ammo); i++) {
+        if (gSaveContext.save.saveInfo.inventory.ammo[i] != 0 && i != SLOT(ITEM_MAGIC_BEANS) &&
+            i != SLOT(ITEM_MAGIC_BEANS + 1)) {
+            loadedData.save.saveInfo.inventory.ammo[i] = gSaveContext.save.saveInfo.inventory.ammo[i];
+        }
+    }
+
+    gSaveContext.save.saveInfo.inventory = loadedData.save.saveInfo.inventory;
+    Anchor_DisplayMessage({ .message = "State loaded from remote!" });
 }
 
 AnchorClient* Anchor_GetClientByActorIndex(uint32_t actorIndex) {
